@@ -13,7 +13,6 @@ ADMIN_ID = 1789117367
 # Estados
 MENU, COMPRANDO, DATOS_ENVIO, PAGO_SIMULADO = range(4)
 
-# --- BASE DE DATOS ---
 def iniciar_db():
     conn = sqlite3.connect('biocan_simulacion.db')
     cursor = conn.cursor()
@@ -23,43 +22,32 @@ def iniciar_db():
     conn.commit()
     conn.close()
 
-# --- CATÁLOGO ACTUALIZADO CON IMÁGENES POR SEPARADO ---
-# Reemplaza 'REEMPLAZAR_CON_ENLACE_IMAGEN_1', etc., con los enlaces reales.
+# CATÁLOGO CON IMÁGENES PROFESIONALES
 PRODUCTOS = {
     "1": {
-        "nombre": "Snack Pollo Pro", 
-        "precio": 5000, 
-        "peso": "250g", 
-        "img": "REEMPLAZAR_CON_ENLACE_IMAGEN_1_POLLO", # Usa la imagen generada 1
-        "descripcion": "Pollo deshidratado rico en proteínas."
+        "nombre": "Snack Pollo Pro", "precio": 5000, "peso": "250g", 
+        "img": "https://r.jina.ai/i/0358828989f64c128c946e3364966e3f",
+        "desc": "Pollo deshidratado alto en proteína natural."
     },
     "2": {
-        "nombre": "Snack Res Premium", 
-        "precio": 6500, 
-        "peso": "300g", 
-        "img": "REEMPLAZAR_CON_ENLACE_IMAGEN_2_RES", # Usa la imagen generada 2
-        "descripcion": "Carne de res real para premios jugosos."
+        "nombre": "Snack Res Premium", "precio": 6500, "peso": "300g", 
+        "img": "https://r.jina.ai/i/6f8820c7467644999f89975399589e6e",
+        "desc": "Carne de res magra para fortalecer músculos."
     },
     "3": {
-        "nombre": "Galletas Vegetales", 
-        "precio": 4000, 
-        "peso": "200g", 
-        "img": "REEMPLAZAR_CON_ENLACE_IMAGEN_3_GALLETAS", # Usa la imagen generada 3
-        "descripcion": "Opción saludable y crujiente con forma de estrella."
+        "nombre": "Galletas Vegetales", "precio": 4000, "peso": "200g", 
+        "img": "https://r.jina.ai/i/56683526543743528892496263884e9e",
+        "desc": "Horneadas con vegetales frescos, ¡Veggie Power!"
     },
     "4": {
-        "nombre": "Hueso Calcio Plus", 
-        "precio": 8000, 
-        "peso": "500g", 
-        "img": "REEMPLAZAR_CON_ENLACE_IMAGEN_4_HUESO", # Usa la imagen generada 4
-        "descripcion": "Hueso duradero para la salud dental."
+        "nombre": "Hueso Calcio Plus", "precio": 8000, "peso": "500g", 
+        "img": "https://r.jina.ai/i/94318726543743528892496263884e9e",
+        "desc": "Sabor duradero para dientes más fuertes."
     },
     "5": {
-        "nombre": "Mix Energético", 
-        "precio": 12000, 
-        "peso": "1kg", 
-        "img": "REEMPLAZAR_CON_ENLACE_IMAGEN_5_MIX", # Usa la imagen generada 5
-        "descripcion": "Mezcla completa para un día activo."
+        "nombre": "Mix Energético", "precio": 12000, "peso": "1kg", 
+        "img": "https://r.jina.ai/i/78112026543743528892496263884e9e",
+        "desc": "Comida completa para perros con alta actividad."
     }
 }
 
@@ -69,7 +57,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id == ADMIN_ID:
         keyboard.append([InlineKeyboardButton("📊 Reporte Admin (CUN)", callback_data='reporte')])
     
-    await update.message.reply_text("🐶 **BIOCAN - Sistema de Ventas**\nSelecciona una opción para iniciar:", 
+    await update.message.reply_text("🐶 **BIOCAN - Sistema de Ventas**\nSelecciona una opción:", 
                                    reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
     return MENU
 
@@ -77,8 +65,7 @@ async def mostrar_catalogo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     keyboard = [[InlineKeyboardButton(f"{v['nombre']} - ${v['precio']}", callback_data=f"prod_{k}")] for k, v in PRODUCTOS.items()]
-    # Editamos el mensaje para mostrar la lista de productos
-    await query.edit_message_text("📱 **Catálogo de Productos**\nSelecciona uno para ver detalles:", reply_markup=InlineKeyboardMarkup(keyboard))
+    await query.edit_message_text("📱 **Catálogo de Productos**\nElige un producto para ver el empaque:", reply_markup=InlineKeyboardMarkup(keyboard))
     return COMPRANDO
 
 async def detalle_producto(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -88,32 +75,32 @@ async def detalle_producto(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['actual'] = prod
     await query.answer()
     
-    # NUEVO: Enviamos la imagen individual y la descripción
+    # Enviar la imagen del empaque generado
     await query.message.reply_photo(
         photo=prod['img'], 
-        caption=f"✨ **{prod['nombre']}**\n⚖️ Peso: {prod['peso']}\n💰 Precio: ${prod['precio']}\n\n📝 {prod['descripcion']}",
+        caption=f"✨ **{prod['nombre']}**\n⚖️ Peso: {prod['peso']}\n💰 Precio: ${prod['precio']}\n\n{prod['desc']}",
         parse_mode="Markdown"
     )
-    keyboard = [[InlineKeyboardButton("🛒 Comprar ahora", callback_data='confirmar')]]
-    await query.message.reply_text("¿Deseas este producto?", reply_markup=InlineKeyboardMarkup(keyboard))
+    keyboard = [[InlineKeyboardButton("✅ Confirmar Pedido", callback_data='confirmar')]]
+    await query.message.reply_text("¿Deseas comprar este producto?", reply_markup=InlineKeyboardMarkup(keyboard))
     return COMPRANDO
 
 async def pedir_datos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.edit_message_text("📝 Ingresa tu **Nombre y Dirección**:")
+    await query.edit_message_text("📝 Escribe **Nombre y Dirección** del cliente:")
     return DATOS_ENVIO
 
 async def ir_a_pago(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['cliente'] = update.message.text
-    keyboard = [[InlineKeyboardButton("💳 Pago con Tarjeta (Simulado)", callback_data='sim_pago')]]
+    keyboard = [[InlineKeyboardButton("💳 Pagar con Tarjeta", callback_data='sim_pago')]]
     await update.message.reply_text("Selecciona el método de pago:", reply_markup=InlineKeyboardMarkup(keyboard))
     return MENU
 
 async def procesar_pago(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.edit_message_text("🔒 **Pasarela BioCan**\nIngresa los 16 dígitos de tu tarjeta:")
+    await query.edit_message_text("🔒 **Pasarela de Pago**\nDigita los números de tu tarjeta (Simulación):")
     return PAGO_SIMULADO
 
 async def exito(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -122,29 +109,24 @@ async def exito(update: Update, context: ContextTypes.DEFAULT_TYPE):
     transaccion = random.randint(100000, 999999)
     fecha = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
 
-    # Guardar en DB para el reporte
     conn = sqlite3.connect('biocan_simulacion.db')
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO ventas (producto, total, fecha) VALUES (?, ?, ?)", 
-                   (prod['nombre'], prod['precio'], fecha))
+    cursor.execute("INSERT INTO ventas (producto, total, fecha) VALUES (?, ?, ?)", (prod['nombre'], prod['precio'], fecha))
     conn.commit()
     conn.close()
 
     comprobante = (
         f"✅ **PAGO EXITOSO**\n"
         f"----------------------------------\n"
-        f"🧾 **COMPROBANTE DE VENTA**\n"
+        f"🧾 **RECIBO DE PAGO - BIOCAN**\n"
         f"----------------------------------\n"
         f"🆔 Transacción: #{transaccion}\n"
-        f"📅 Fecha: {fecha}\n"
         f"👤 Cliente: {cliente}\n"
         f"📦 Producto: {prod['nombre']}\n"
-        f"💰 Total Pagado: ${prod['precio']:,.0f}\n"
-        f"💳 Método: Tarjeta de Crédito\n"
+        f"💰 Total: ${prod['precio']:,.0f}\n"
         f"----------------------------------\n"
-        f"¡Gracias por confiar en BioCan!"
+        f"¡Gracias por su compra ficticia!"
     )
-    
     await update.message.reply_text(comprobante, parse_mode="Markdown")
     return ConversationHandler.END
 
@@ -160,33 +142,29 @@ async def reporte(update: Update, context: ContextTypes.DEFAULT_TYPE):
     iva = total * 0.19
     
     await query.edit_message_text(
-        f"📊 **ANÁLISIS CUANTITATIVO (Admin)**\n\n"
-        f"Ventas simuladas: {res[1]}\n"
-        f"Ingreso Total: ${total:,.0f}\n"
-        f"IVA (19%): ${iva:,.0f}\n"
-        f"Utilidad Neta: ${total - iva:,.0f}",
+        f"📊 **REPORTE CUANTITATIVO**\n\n"
+        f"📦 Ventas realizadas: {res[1]}\n"
+        f"💰 Ingresos Brutos: ${total:,.0f}\n"
+        f"💸 IVA Recaudado (19%): ${iva:,.0f}\n"
+        f"📉 Utilidad Neta: ${total - iva:,.0f}",
         parse_mode="Markdown"
     )
     return MENU
 
-# Configuración final
-application = ApplicationBuilder().token(TOKEN).build()
-conv_handler = ConversationHandler(
-    entry_points=[CommandHandler("start", start)],
-    states={
-        MENU: [
-            CallbackQueryHandler(mostrar_catalogo, pattern='catalogo'),
-            CallbackQueryHandler(reporte, pattern='reporte'),
-            CallbackQueryHandler(procesar_pago, pattern='sim_pago')
-        ],
-        COMPRANDO: [
-            CallbackQueryHandler(detalle_producto, pattern='prod_'),
-            CallbackQueryHandler(pedir_datos, pattern='confirmar')
-        ],
-        DATOS_ENVIO: [MessageHandler(filters.TEXT & ~filters.COMMAND, ir_a_pago)],
-        PAGO_SIMULADO: [MessageHandler(filters.TEXT & ~filters.COMMAND, exito)],
-    },
-    fallbacks=[CommandHandler("start", start)],
-)
-application.add_handler(conv_handler)
-application.run_polling()
+if __name__ == '__main__':
+    application = ApplicationBuilder().token(TOKEN).build()
+    conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("start", start)],
+        states={
+            MENU: [CallbackQueryHandler(mostrar_catalogo, pattern='catalogo'),
+                   CallbackQueryHandler(reporte, pattern='reporte'),
+                   CallbackQueryHandler(procesar_pago, pattern='sim_pago')],
+            COMPRANDO: [CallbackQueryHandler(detalle_producto, pattern='prod_'),
+                        CallbackQueryHandler(pedir_datos, pattern='confirmar')],
+            DATOS_ENVIO: [MessageHandler(filters.TEXT & ~filters.COMMAND, ir_a_pago)],
+            PAGO_SIMULADO: [MessageHandler(filters.TEXT & ~filters.COMMAND, exito)],
+        },
+        fallbacks=[CommandHandler("start", start)],
+    )
+    application.add_handler(conv_handler)
+    application.run_polling()
