@@ -1,125 +1,151 @@
-from telegram import Update, ReplyKeyboardMarkup
+import sqlite3
+import datetime
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    MessageHandler,
-    filters,
-    ContextTypes,
-    ConversationHandler
+    ApplicationBuilder, CommandHandler, MessageHandler, 
+    filters, ContextTypes, ConversationHandler, CallbackQueryHandler
 )
 
 TOKEN = "8304894213:AAFD9shSw9cuA2yksApKhyaFMS7c0XGPqns"
+ADMIN_ID = 1789117367  # Tu ID configurado
 
-# Estados
-MENU, PRODUCTO, CANTIDAD, ENTREGA, DIRECCION, NOMBRE, TELEFONO, PAGO = range(8)
+# Estados del flujo
+MENU, COMPRANDO, DATOS_ENVIO, PAGO_TARJETA = range(4)
 
-productos = {
-    "Snack pollo": 5000,
-    "Snack res": 6000,
-    "Snack vegetal": 4500
-}
+# --- BASE DE DATOS ---
+def iniciar_db():
+    conn = sqlite3.connect('biocan_ventas.db')
+    cursor = conn.cursor()
+    cursor.execute('''CREATE TABLE IF NOT EXISTS ventas 
+                      (id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                       cliente TEXT, producto TEXT, total REAL, 
+                       metodo TEXT, fecha TEXT)''')
+    conn.commit()
+    conn.close()
 
-# Funciones de estado (start, menu, producto, etc.)
+# --- INICIO ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [["Comprar"], ["Ver productos"]]
-    reply = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    await update.message.reply_text("🐶 BioCan Store\nSelecciona una opción:", reply_markup=reply)
+    iniciar_db()
+    user = update.effective_user
+    
+    keyboard = [[InlineKeyboardButton("🛒 Realizar Pedido", callback_data='comprar')]]
+    
+    # Solo tú verás este botón
+    if user.id == ADMIN_ID:
+        keyboard.append([InlineKeyboardButton("📊 Reporte de Ventas (Admin)", callback_data='reporte')])
+
+    await update.message.reply_text(
+        f"🐾 **¡Bienvenido a BioCan Store!**\nHola {user.first_name}, selecciona una opción:",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode="Markdown"
+    )
     return MENU
 
-async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    texto = update.message.text
-    if texto == "Ver productos":
-        mensaje = "📦 Productos disponibles:\n\n"
-        for p, precio in productos.items():
-            mensaje += f"{p} - ${precio}\n"
-        await update.message.reply_text(mensaje)
-        return MENU
-    keyboard = [[p] for p in productos.keys()]
-    reply = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    await update.message.reply_text("Selecciona producto:", reply_markup=reply)
-    return PRODUCTO
-
-async def producto(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["producto"] = update.message.text
-    await update.message.reply_text("¿Cantidad?")
-    return CANTIDAD
-
-async def cantidad(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        context.user_data["cantidad"] = int(update.message.text)
-    except ValueError:
-        await update.message.reply_text("Por favor, introduce un número válido.")
-        return CANTIDAD
-    keyboard = [["Domicilio"], ["Recoger en tienda"]]
-    reply = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    await update.message.reply_text("Tipo de entrega:", reply_markup=reply)
-    return ENTREGA
-
-async def entrega(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    tipo = update.message.text
-    context.user_data["entrega"] = tipo
-    if tipo == "Domicilio":
-        await update.message.reply_text("Escribe tu dirección:")
-        return DIRECCION
-    await update.message.reply_text("Nombre del cliente:")
-    return NOMBRE
-
-async def direccion(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["direccion"] = update.message.text
-    await update.message.reply_text("Nombre del cliente:")
-    return NOMBRE
-
-async def nombre(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["nombre"] = update.message.text
-    await update.message.reply_text("Número de teléfono:")
-    return TELEFONO
-
-async def telefono(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["telefono"] = update.message.text
-    keyboard = [["Nequi"], ["Daviplata"], ["Bancolombia"], ["Contraentrega"]]
-    reply = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    await update.message.reply_text("Selecciona método de pago:", reply_markup=reply)
-    return PAGO
-
-async def pago(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    metodo = update.message.text
-    prod = context.user_data["producto"]
-    cant = context.user_data["cantidad"]
-    total = productos[prod] * cant
-    dir_envio = context.user_data.get("direccion", "Recoger en tienda")
-
-    comprobante = f"🧾 **BIOCAN STORE**\n\nOrden generada ✅\n\n" \
-                  f"Cliente: {context.user_data['nombre']}\nTeléfono: {context.user_data['telefono']}\n" \
-                  f"Producto: {prod}\nCantidad: {cant}\nTotal: ${total}\n" \
-                  f"Entrega: {context.user_data['entrega']}\nDirección: {dir_envio}\n" \
-                  f"Método de pago: {metodo}\n\nEstado: Pendiente confirmación"
+# --- PROCESO DE VENTA ---
+async def seleccionar_producto(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
     
-    await update.message.reply_text(comprobante)
+    keyboard = [
+        [InlineKeyboardButton("Snack Pollo - $5.000", callback_data='Snack Pollo_5000')],
+        [InlineKeyboardButton("Snack Res - $6.000", callback_data='Snack Res_6000')],
+        [InlineKeyboardButton("Snack Vegetal - $4.500", callback_data='Snack Vegetal_4500')]
+    ]
+    await query.edit_message_text("Selecciona el producto:", reply_markup=InlineKeyboardMarkup(keyboard))
+    return COMPRANDO
+
+async def pedir_datos(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    data = query.data.split('_')
+    context.user_data['prod'] = data[0]
+    context.user_data['precio'] = float(data[1])
+    
+    await query.answer()
+    await query.edit_message_text("📍 Escribe tu **Nombre y Dirección** (ej: Juan Perez, Calle 10 #2-3):", parse_mode="Markdown")
+    return DATOS_ENVIO
+
+async def seleccionar_pago(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['cliente_info'] = update.message.text
+    
+    keyboard = [
+        [InlineKeyboardButton("💳 Tarjeta de Crédito", callback_data='pago_tarjeta')],
+        [InlineKeyboardButton("📱 Nequi / Daviplata", callback_data='pago_digital')]
+    ]
+    await update.message.reply_text("💳 **Método de Pago**\n¿Cómo deseas pagar?", reply_markup=InlineKeyboardMarkup(keyboard))
+    return MENU
+
+# --- PASARELA DE PAGO (PROG. AVANZADA) ---
+async def flujo_tarjeta(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text("🔒 **Pasarela Segura BioCan**\nIngresa los datos (Número de tarjeta, MM/AA, CVV):", parse_mode="Markdown")
+    return PAGO_TARJETA
+
+async def finalizar_pago(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    cliente = context.user_data['cliente_info']
+    producto = context.user_data['prod']
+    total = context.user_data['precio']
+    fecha = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+
+    # Guardar en DB
+    conn = sqlite3.connect('biocan_ventas.db')
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO ventas (cliente, producto, total, metodo, fecha) VALUES (?, ?, ?, ?, ?)",
+                   (cliente, producto, total, "Tarjeta", fecha))
+    conn.commit()
+    conn.close()
+
+    await update.message.reply_text(f"✅ **¡Transacción Exitosa!**\n\nGracias {cliente.split(',')[0]}, tu pedido de {producto} ha sido registrado.")
     return ConversationHandler.END
 
-async def cancelar(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Pedido cancelado.")
-    return ConversationHandler.END
+# --- REPORTE (RAZONAMIENTO CUANTITATIVO) ---
+async def generar_reporte(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    if query.from_user.id != ADMIN_ID:
+        await query.answer("Acceso restringido", show_alert=True)
+        return MENU
 
-# Configuración del bot
+    conn = sqlite3.connect('biocan_ventas.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT SUM(total), COUNT(id) FROM ventas")
+    res = cursor.fetchone()
+    conn.close()
+
+    total = res[0] if res[0] else 0
+    iva = total * 0.19
+    neto = total - iva
+
+    reporte = (
+        f"📊 **ANÁLISIS DE VENTAS BIOCAN**\n"
+        f"----------------------------\n"
+        f"📦 Pedidos totales: {res[1]}\n"
+        f"💰 Venta Bruta: ${total:,.0f}\n"
+        f"💸 IVA (19%): ${iva:,.0f}\n"
+        f"📉 Total Neto: ${neto:,.0f}\n"
+        f"----------------------------"
+    )
+    await query.edit_message_text(reporte, parse_mode="Markdown")
+    return MENU
+
 if __name__ == '__main__':
     application = ApplicationBuilder().token(TOKEN).build()
     
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
-            MENU: [MessageHandler(filters.TEXT & ~filters.COMMAND, menu)],
-            PRODUCTO: [MessageHandler(filters.TEXT & ~filters.COMMAND, producto)],
-            CANTIDAD: [MessageHandler(filters.TEXT & ~filters.COMMAND, cantidad)],
-            ENTREGA: [MessageHandler(filters.TEXT & ~filters.COMMAND, entrega)],
-            DIRECCION: [MessageHandler(filters.TEXT & ~filters.COMMAND, direccion)],
-            NOMBRE: [MessageHandler(filters.TEXT & ~filters.COMMAND, nombre)],
-            TELEFONO: [MessageHandler(filters.TEXT & ~filters.COMMAND, telefono)],
-            PAGO: [MessageHandler(filters.TEXT & ~filters.COMMAND, pago)],
+            MENU: [
+                CallbackQueryHandler(seleccionar_producto, pattern='comprar'),
+                CallbackQueryHandler(generar_reporte, pattern='reporte')
+            ],
+            COMPRANDO: [CallbackQueryHandler(pedir_datos)],
+            DATOS_ENVIO: [MessageHandler(filters.TEXT & ~filters.COMMAND, seleccionar_pago)],
+            PAGO_TARJETA: [MessageHandler(filters.TEXT & ~filters.COMMAND, finalizar_pago)],
         },
-        fallbacks=[CommandHandler("cancelar", cancelar)],
+        fallbacks=[CommandHandler("start", start)],
     )
 
     application.add_handler(conv_handler)
-    print("Bot BioCan encendido...")
+    application.add_handler(CallbackQueryHandler(flujo_tarjeta, pattern='pago_tarjeta'))
+    
+    print("BioCan Pro Online...")
     application.run_polling()
