@@ -1,3 +1,1 @@
-python-telegram-bot==22.7
-flask
-psycopg2-binary
+python bot.py
