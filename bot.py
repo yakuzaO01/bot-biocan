@@ -8,7 +8,7 @@ from telegram.ext import (
     filters, ContextTypes, ConversationHandler, CallbackQueryHandler
 )
 
-TOKEN = "8304894213:AAFD9shSw9cuA2yksApKhyaFMS7c0XGPqns"
+TOKEN = "8304894213:AAFtg-hoXtSofWYz9maXMh8SxLk0F9aiJ4k"
 ADMIN_ID = 1789117367
 
 DATABASE_URL = os.getenv("DATABASE_URL")
