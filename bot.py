@@ -152,7 +152,7 @@ async def procesar_pago(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
     await query.edit_message_text(
-        "💳 Simulación de pago\nEscribe cualquier número de tarjeta:"
+        "💳 Simulación de pago\nEscribe cualquier número:"
     )
 
     return PAGO_SIMULADO
@@ -179,7 +179,7 @@ async def exito(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         f"✅ PAGO EXITOSO\n"
-        f"🧾 Recibo BIOCAN\n"
+        f"🧾 RECIBO BIOCAN\n"
         f"Transacción: {transaccion}\n"
         f"Cliente: {cliente}\n"
         f"Producto: {prod['nombre']}\n"
@@ -194,7 +194,7 @@ async def reporte(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
     if not DATABASE_URL:
-        await query.edit_message_text("No hay base de datos conectada")
+        await query.edit_message_text("Base de datos no conectada")
         return MENU
 
     conn = psycopg2.connect(DATABASE_URL, sslmode="require")
@@ -248,4 +248,5 @@ if __name__ == '__main__':
     )
 
     app.add_handler(conv)
-    app.run_polling()
+
+    app.run_polling(drop_pending_updates=True)
