@@ -8,6 +8,10 @@ from telegram.ext import (
     filters, ContextTypes, ConversationHandler, CallbackQueryHandler
 )
 
+import sys
+print(f"DEBUG: TOKEN from env = {os.getenv('TOKEN')}", file=sys.stderr)
+print(f"DEBUG: ADMIN_ID from env = {os.getenv('ADMIN_ID')}", file=sys.stderr)
+
 TOKEN = os.getenv("TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
 
